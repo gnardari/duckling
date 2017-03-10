@@ -18,21 +18,28 @@
         doc-proba-given-cla (reduce + (map compute-feat-proba bag-of-feats))]
     (+ doc-proba-given-cla class-proba)))
 
+(defn- normalize-proba
+  "Normalization constant, does not affect classification output.
+   P(d|c) / P(d)
+   P(d) = P(d|c1) + P(d|c2) + ... P(d|cn)"
+  [cla-proba doc-proba]
+  (/ cla-proba doc-proba))
+
 (defn classify
   "Tries to find the most likely class by computing each score for the given
   bag of features"
   [classifier bag-of-feats]
   (let [classes (:classes classifier)
         f (fn [max-cla [cla-name cla-info]]
-      (let [[_ max-proba] max-cla
+      (let [[max-name max-proba doc-proba] max-cla
             cla-proba (p-doc-given-class bag-of-feats cla-info)]
         (if-not max-cla
-          [cla-name cla-proba]
+          [cla-name cla-proba cla-proba]
           (if (> cla-proba max-proba)
-            [cla-name cla-proba]
-            max-cla))))
-        [winner p] (reduce f nil classes)]
-    [winner p]))
+            [cla-name cla-proba (+ doc-proba cla-proba)]
+            [max-name max-proba (+ doc-proba cla-proba)]))))
+        [winner p doc-proba] (reduce f nil classes)]
+    [winner (normalize-proba p doc-proba)]))
 
 (defn- aggregate
   "Transform the various counts into probabilities"
